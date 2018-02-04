@@ -41,7 +41,8 @@ public class Main {
     }
 
     static enum Flag {
-        VERBOSE, QUIET, DEBUG;
+        VERBOSE, QUIET, DEBUG,
+        SYSTEM, CODE, DECLARATION;
 
         public String getName() {
             return name().toLowerCase().replace('_', '-');
@@ -62,7 +63,7 @@ public class Main {
     private final List<String> classes = new ArrayList<>();
     private final Set<String> classSet = new HashSet<>();
     private final Set<String> jars = new HashSet<>();
-    private final Set<Flag> flags = EnumSet.noneOf(Flag.class);
+    private final Set<Flag> flags = EnumSet.of(Flag.CODE, Flag.DECLARATION);
     private int current = 0;
 
     public static void main(String[] args) {
@@ -102,6 +103,32 @@ public class Main {
                         case "-d":
                         case "--debug":
                             flags.add(Flag.DEBUG);
+                            break;
+                        case "-s":
+                        case "--system":
+                            flags.add(Flag.SYSTEM);
+                            break;
+                        case "-S":
+                        case "--no-system":
+                            flags.remove(Flag.SYSTEM);
+                            break;
+                        case "-o":
+                        case "--code":
+                            flags.add(Flag.CODE);
+                            break;
+                        case "-O":
+                        case "--no-code":
+                            flags.remove(Flag.CODE);
+                            break;
+                        case "-e":
+                        case "--decl":
+                        case "--declaration":
+                            flags.add(Flag.CODE);
+                            break;
+                        case "-E":
+                        case "--no-decl":
+                        case "--no-declaration":
+                            flags.remove(Flag.DECLARATION);
                             break;
                     }
                     break;
@@ -217,9 +244,11 @@ public class Main {
             return;
         }
         String jarUrl = matcher.group(1);
-        if (!classPath.contains(new URL(jarUrl))) {
-            LOG.log(Level.FINE, "Jar not in classpath: {0}", jarUrl);
-            return;
+        if (!flags.contains(Flag.SYSTEM)) {
+            if (!classPath.contains(new URL(jarUrl))) {
+                LOG.log(Level.FINE, "Jar not in classpath: {0}", jarUrl);
+                return;
+            }
         }
         jars.add(jarUrl);
         try (InputStream in = url.openStream()) {
@@ -230,7 +259,9 @@ public class Main {
                 @Override
                 public FieldVisitor visitField(int access, String name,
                         String desc, String signature, Object value) {
-                    refType(desc, 0);
+                    if (flags.contains(Flag.DECLARATION)) {
+                        refType(desc, 0);
+                    }
                     return super.visitField(access, name, desc, signature,
                             value);
                 }
@@ -238,21 +269,28 @@ public class Main {
                 @Override
                 public MethodVisitor visitMethod(int access, String name,
                         String desc, String signature, String[] exceptions) {
-                    methodDesc(desc);
-                    return new MethodVisitor(Opcodes.ASM6) {
-                        @Override
-                        public void visitMethodInsn(int opcode,
-                                String owner, String name, String desc,
-                                boolean itf) {
-                            addClass(owner.replace('/', '.'));
-                        }
+                    if (flags.contains(Flag.DECLARATION)) {
+                        methodDesc(desc);
+                    }
+                    if (flags.contains(Flag.CODE)) {
+                        return new MethodVisitor(Opcodes.ASM6) {
+                            @Override
+                            public void visitMethodInsn(int opcode,
+                                    String owner, String name, String desc,
+                                    boolean itf) {
+                                addClass(owner.replace('/', '.'));
+                            }
 
-                        @Override
-                        public void visitFieldInsn(int opcode, String owner,
-                                String name, String desc) {
-                            addClass(owner.replace('/', '.'));
-                        }                            
-                    };
+                            @Override
+                            public void visitFieldInsn(int opcode, String owner,
+                                    String name, String desc) {
+                                addClass(owner.replace('/', '.'));
+                            }                            
+                        };
+                    } else {
+                        return super.visitMethod(access, name, desc, signature,
+                                exceptions);
+                    }
                 }
             }, ClassReader.SKIP_DEBUG|ClassReader.SKIP_FRAMES);
         }
