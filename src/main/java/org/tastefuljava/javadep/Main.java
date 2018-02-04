@@ -125,7 +125,7 @@ public class Main {
                 classPath.toArray(new URL[classPath.size()]), null);
     }
 
-    private void initLogging() {
+    private void setLoggingLevel() {
         Logger log = LogManager.getLogManager().getLogger("");
         if (log != null) {
             Level level = Level.WARNING;
@@ -143,7 +143,7 @@ public class Main {
     }
 
     private void process() throws IOException {
-        initLogging();
+        setLoggingLevel();
         while (current < classes.size()) {
             String cname = classes.get(current++);
             analyseClass(cname);
