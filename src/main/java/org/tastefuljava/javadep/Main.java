@@ -27,6 +27,17 @@ public class Main {
         // This is especially useful on Mac OS to avoid the default app to be
         // Launched and appear in the dock and in the menu bar
         System.setProperty("java.awt.headless", "true");
+        
+        // Default logging settings
+        if (System.getProperty("java.util.logging.config.file") == null) {
+            // Use default logging configuration
+            try (InputStream inputStream = Main.class.getResourceAsStream(
+                    "default-logging.properties")) {
+                LogManager.getLogManager().readConfiguration(inputStream);
+            } catch (final IOException e) {
+                Logger.getLogger(Main.class.getName()).severe(e.getMessage());
+            }
+        }
     }
 
     static enum Flag {
@@ -115,15 +126,6 @@ public class Main {
     }
 
     private void initLogging() {
-        if (System.getProperty("java.util.logging.config.file") == null) {
-            // Use default logging configuration
-            try (InputStream inputStream = Main.class.getResourceAsStream(
-                    "default-logging.properties")) {
-                LogManager.getLogManager().readConfiguration(inputStream);
-            } catch (final IOException e) {
-                LOG.severe(e.getMessage());
-            }
-        }
         Logger log = LogManager.getLogManager().getLogger("");
         if (log != null) {
             Level level = Level.WARNING;
